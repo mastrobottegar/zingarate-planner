@@ -209,7 +209,7 @@ with st.expander("🛠️ Area Admin Segreta"):
     
     if admin_pass == "Zingarata2026": 
         st.success("Accesso ai server sbloccato.")
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             st.subheader("1. Salva i Dati")
@@ -217,24 +217,36 @@ with st.expander("🛠️ Area Admin Segreta"):
                 with open("zingarate.db", "rb") as f:
                     db_bytes = f.read()
                 st.download_button(
-                    label="💾 Scarica Backup (.db)",
+                    label="💾 Scarica Backup",
                     data=db_bytes,
                     file_name="zingarate_backup.db",
                     mime="application/octet-stream",
                     type="primary"
                 )
             except FileNotFoundError:
-                st.error("Nessun database trovato.")
+                st.error("Nessun db trovato.")
                 
         with col2:
-            st.subheader("2. Ripristina Dati")
-            uploaded_file = st.file_uploader("Carica zingarate_backup.db", type=["db"])
+            st.subheader("2. Ripristina")
+            uploaded_file = st.file_uploader("Carica backup", type=["db"])
             if uploaded_file is not None:
-                if st.button("🔥 Conferma Ripristino"):
+                if st.button("🔥 Conferma"):
                     with open("zingarate.db", "wb") as f:
                         f.write(uploaded_file.getbuffer())
-                    st.success("Database ripristinato! Ricarico l'app...")
+                    st.success("Ripristinato!")
                     st.rerun()
+                    
+        with col3:
+            st.subheader("3. Protocollo Ghost")
+            st.warning("⚠️ Cancella TUTTO")
+            if st.button("🚨 Svuota DB"):
+                db.svuota_db()
+                # Resettiamo anche la memoria locale della tua sessione
+                st.session_state.votato = False
+                st.session_state.utente_corrente = None
+                st.session_state.dati_utente = None
+                st.success("Boom! Database piallato. Ricarico...")
+                st.rerun()
                     
     elif admin_pass != "":
         st.error("⛔ Password errata. Fuori di qui.")
