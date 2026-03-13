@@ -77,3 +77,11 @@ def get_tutte_preferenze():
     df = pd.read_sql_query("SELECT * FROM preferenze", conn)
     conn.close()
     return df
+
+def svuota_db():
+    """Cancella tutti i record dalla tabella preferenze"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM preferenze")
+    conn.commit()
+    conn.close()
