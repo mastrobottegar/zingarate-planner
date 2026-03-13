@@ -60,8 +60,7 @@ elif not st.session_state.votato:
         
         # --- 1. IDENTITÀ E BUDGET ---
         st.markdown("#### 💰 Il Budget")
-        budget = st.number_input("Budget massimo (€)", min_value=50, max_value=5000, value=float(du.get("budget", 400)), step=50)
-        
+        budget = st.number_input("Budget massimo (€)", min_value=50, max_value=5000, value=int(float(du.get("budget") or 400)), step=50)        
         st.divider()
         
         # --- 2. IL REBUS DELLE DATE ---
