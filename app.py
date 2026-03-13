@@ -131,14 +131,15 @@ if numero_votanti > 0:
         if not api_key:
             st.error("⚠️ Manca la API Key di Groq nel file Secrets!")
         else:
-            with st.spinner("Mescolo i dati, assegno i nomi in codice e interrogo LLaMA..."):
+            with st.spinner("Mescolo i dati, assegno i nomi in codice e compilo il dossier operativo..."):
                 
                 # 1. SHUFFLE: Mescoliamo l'ordine delle righe a caso
                 df_mescolato = df_preferenze.sample(frac=1).reset_index(drop=True)
                 
                 # 2. GENERAZIONE NOMI IN CODICE
                 nomi_base = ["Falco", "Cobra", "Volpe", "Lupo", "Orso", "Tigre", "Vipera", "Corvo", "Squalo", "Pantera", "Grizzly", "Mamba"]
-                nomi_in_codice = random.sample(nomi_base, numero_votanti)
+                # Assicuriamoci di non chiedere più nomi di quanti ne abbiamo nella lista base
+                nomi_in_codice = random.sample(nomi_base, min(numero_votanti, len(nomi_base)))
                 
                 # 3. COSTRUZIONE DEL PROMPT ANONIMO
                 prompt = (
@@ -163,13 +164,18 @@ if numero_votanti > 0:
                         prompt += "\n"
                     
                 prompt += (
-                    "IL TUO COMPITO (Valutazione Spietata):\n"
-                    "Per ogni proposta specifica emersa (o creane tu 2 se non ce ne sono di buone):\n"
-                    "1. Assegna uno 'Zinga-Score' (Voto di Compatibilità da 1 a 10).\n"
-                    "2. Elenca i MATCH 🟢 (Chi è felice e perché, es. rientra nel budget di tutti).\n"
-                    "3. Elenca i MISMATCH 🔴 (Quali 'Assolutamente NO' o date impossibili vengono violate e da chi).\n"
-                    "4. Sii ironico e bacchetta gli agenti che hanno fatto richieste assurde incompatibili con il gruppo.\n"
-                    "Formatta la risposta in Markdown in modo che sia facile e divertente da leggere."
+                    "IL TUO COMPITO (Valutazione e Piano Operativo):\n"
+                    "Fase 1: Il Pagellone delle Proposte\n"
+                    "Per ogni proposta emersa (se non ce ne sono, proponine tu un paio realistiche basandoti sui gusti incrociati):\n"
+                    "- Assegna uno 'Zinga-Score' (da 1 a 10).\n"
+                    "- Elenca i MATCH 🟢 (chi è felice e perché).\n"
+                    "- Elenca i MISMATCH 🔴 (quali veti vengono violati e da chi).\n"
+                    "- Sii ironico e bacchetta gli agenti con richieste fuori dal mondo o con budget irrealistici.\n\n"
+                    "Fase 2: Il Dossier Operativo (La Meta Vincitrice)\n"
+                    "- Decreta la meta VINCITRICE assoluta (quella che fa meno danni al gruppo e sopravvive ai veti).\n"
+                    "- Stila un Programma Dettagliato Day-by-Day (Giorno 1, Giorno 2...) diviso in Mattina, Pomeriggio e Sera per la meta vincitrice.\n"
+                    "- Specifica nel programma COME le singole attività incastrano i paletti degli agenti (es. 'Sera: Birreria tranquilla per rispettare il divieto di discoteche dell'Agente Lupo').\n\n"
+                    "Formatta tutto in Markdown pulito, come un vero dossier top secret di spionaggio."
                 )
 
                 try:
@@ -178,7 +184,7 @@ if numero_votanti > 0:
                         messages=[
                             {
                                 "role": "system",
-                                "content": "Sei un tour operator esperto, spietato e ironico. Sei il giudice supremo delle vacanze di gruppo."
+                                "content": "Sei un tour operator esperto, spietato e ironico. Sei il Direttore delle Operazioni Segrete per le vacanze di gruppo."
                             },
                             {
                                 "role": "user",
@@ -189,7 +195,7 @@ if numero_votanti > 0:
                         temperature=0.7,
                     )
                     
-                    st.subheader("🗺️ Il Verdetto (Classificato)")
+                    st.subheader("🗺️ Il Dossier della Missione (Classificato)")
                     st.markdown(chat_completion.choices[0].message.content)
                 except Exception as e:
                     st.error(f"Errore di comunicazione con i server segreti: {e}")
