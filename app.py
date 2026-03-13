@@ -1,13 +1,14 @@
 import streamlit as st
 from groq import Groq
 import os
+import random
 from dotenv import load_dotenv
 import database as db
 
 # 1. Inizializzazione Database
 db.init_db()
 
-# 2. Caricamento Variabili d'Ambiente (API Key)
+# 2. Caricamento Variabili d'Ambiente
 load_dotenv()
 api_key = os.getenv("GROQ_API_KEY")
 st.set_page_config(page_title="Zingarate Planner", page_icon="🥷")
@@ -15,36 +16,63 @@ st.set_page_config(page_title="Zingarate Planner", page_icon="🥷")
 st.title("Top Secret Zingarate Planner 🥷")
 st.write("Inserisci i tuoi desideri nell'ombra. Nessuno saprà cosa hai chiesto.")
 
-# Stato della sessione per nascondere il form dopo l'invio
+# --- GESTIONE STATO DI SESSIONE ---
+if "utente_corrente" not in st.session_state:
+    st.session_state.utente_corrente = None
+if "dati_utente" not in st.session_state:
+    st.session_state.dati_utente = None
 if "votato" not in st.session_state:
     st.session_state.votato = False
 
-# --- SEZIONE INSERIMENTO (Invisibile dopo il voto) ---
-if not st.session_state.votato:
-    st.subheader("💡 Configura la tua Zingarata")
+# --- STEP 1: IDENTIFICAZIONE (Login Invisibile) ---
+if st.session_state.utente_corrente is None:
+    st.subheader("👤 Identificazione")
+    nome_input = st.text_input("Inserisci il tuo nome per votare o modificare le tue preferenze:")
     
-    with st.form(key="preferenze_form", clear_on_submit=True):
+    if st.button("Entra 🚪", type="primary"):
+        if nome_input:
+            # Pulizia automatica del nome (rimuove spazi e mette la prima maiuscola)
+            nome_pulito = nome_input.strip().title()
+            
+            # Cerca nel DB se l'utente esiste già
+            dati_esistenti = db.get_preferenza_autore(nome_pulito)
+            
+            st.session_state.utente_corrente = nome_pulito
+            if dati_esistenti:
+                st.session_state.dati_utente = dati_esistenti
+                st.success(f"Bentornato {nome_pulito}! Ho recuperato le tue vecchie preferenze.")
+            else:
+                st.session_state.dati_utente = {}
+                st.info(f"Benvenuto {nome_pulito}! Sei un nuovo partecipante.")
+            st.rerun()
+        else:
+            st.warning("Devi inserire un nome per procedere!")
+
+# --- STEP 2: IL FORM (Visibile solo dopo aver inserito il nome) ---
+elif not st.session_state.votato:
+    st.subheader(f"💡 Configura la tua Zingarata, {st.session_state.utente_corrente}")
+    st.write("Se modifichi i dati e salvi, le tue vecchie preferenze verranno sovrascritte.")
+    
+    # Recuperiamo i dati vecchi se esistono (altrimenti stringhe vuote o default)
+    du = st.session_state.dati_utente
+    
+    with st.form(key="preferenze_form", clear_on_submit=False):
         
         # --- 1. IDENTITÀ E BUDGET ---
-        st.markdown("#### 👤 Chi sei e quanto sganci?")
-        col_i1, col_i2 = st.columns(2)
-        with col_i1:
-            autore = st.text_input("Il tuo nome", placeholder="Es. Marco")
-        with col_i2:
-            budget = st.number_input("Budget massimo (€)", min_value=50, max_value=5000, value=400, step=50)
+        st.markdown("#### 💰 Il Budget")
+        budget = st.number_input("Budget massimo (€)", min_value=50, max_value=5000, value=float(du.get("budget", 400)), step=50)
         
         st.divider()
         
         # --- 2. IL REBUS DELLE DATE ---
         st.markdown("#### 📅 Le Date")
-        st.write("Inserisci giorni esatti (es. 12-15 nov) o periodi (es. weekend di ottobre).")
         col_d1, col_d2, col_d3 = st.columns(3)
         with col_d1:
-            date_preferite = st.text_input("🟢 Date Preferite")
+            date_preferite = st.text_input("🟢 Date Preferite", value=du.get("date_preferite", ""))
         with col_d2:
-            date_evitare = st.text_input("🟡 Date da Evitare")
+            date_evitare = st.text_input("🟡 Date da Evitare", value=du.get("date_evitare", ""))
         with col_d3:
-            date_impossibili = st.text_input("🔴 Date Impossibili")
+            date_impossibili = st.text_input("🔴 Date Impossibili", value=du.get("date_impossibili", ""))
 
         st.divider()
 
@@ -52,37 +80,44 @@ if not st.session_state.votato:
         st.markdown("#### 🎯 Cosa vogliamo fare?")
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            amerei_fare = st.text_area("😍 Cosa AMEREI fare", placeholder="Es. Tour enogastronomico, terme...", height=100)
-            preferisco_fare = st.text_area("🙂 Cosa PREFERISCO fare", placeholder="Es. Girare in centro a piedi...", height=100)
+            amerei_fare = st.text_area("😍 Cosa AMEREI fare", value=du.get("amerei_fare", ""), height=100)
+            preferisco_fare = st.text_area("🙂 Cosa PREFERISCO fare", value=du.get("preferisco_fare", ""), height=100)
         with col_g2:
-            voglio_evitare = st.text_area("🥱 Cosa VOGLIO EVITARE", placeholder="Es. Alzatacce alle 6, troppi musei...", height=100)
-            assolutamente_no = st.text_area("🚫 Assolutamente NO", placeholder="Es. Ostelli condivisi, discoteche...", height=100)
+            voglio_evitare = st.text_area("🥱 Cosa VOGLIO EVITARE", value=du.get("voglio_evitare", ""), height=100)
+            assolutamente_no = st.text_area("🚫 Assolutamente NO", value=du.get("assolutamente_no", ""), height=100)
 
         st.divider()
 
         # --- 4. L'IDEA DI BASE ---
         st.markdown("#### 🌍 La tua Proposta (Opzionale)")
         proposta_testuale = st.text_area(
-            "Hai già in mente una destinazione o un'idea specifica? Scrivila qui:",
-            placeholder="Es: Raga andiamo a Monaco a bere birra, oppure a Lisbona...",
+            "Hai in mente una destinazione specifica?",
+            value=du.get("proposta_testuale", ""),
             height=100
         )
         
-        submitted = st.form_submit_button("Sigilla il mio voto segreto 🤐", type="primary")
+        submitted = st.form_submit_button("Sigilla le mie preferenze 🤐", type="primary")
         
         if submitted:
-            if not autore:
-                st.error("⚠️ Inserisci almeno il tuo nome per votare!")
-            else:
-                # Inserimento nel DB aggiornato
-                db.insert_preferenza(
-                    autore, budget, date_preferite, date_evitare, date_impossibili,
-                    amerei_fare, preferisco_fare, voglio_evitare, assolutamente_no, proposta_testuale
-                )
-                st.session_state.votato = True
-                st.rerun()
+            # Inserimento o Aggiornamento nel DB
+            db.upsert_preferenza(
+                st.session_state.utente_corrente, budget, date_preferite, date_evitare, date_impossibili,
+                amerei_fare, preferisco_fare, voglio_evitare, assolutamente_no, proposta_testuale
+            )
+            st.session_state.votato = True
+            st.rerun()
+
+    # Bottone per cambiare utente se si è sbagliato a digitare
+    if st.button("Esci / Cambia Utente"):
+        st.session_state.utente_corrente = None
+        st.session_state.dati_utente = None
+        st.rerun()
+
 else:
-    st.success("✅ Il tuo profilo di viaggio è stato acquisito nel database segreto.")
+    st.success(f"✅ Ottimo lavoro, {st.session_state.utente_corrente}. Il tuo profilo è blindato nel database.")
+    if st.button("Modifica le mie preferenze"):
+        st.session_state.votato = False
+        st.rerun()
 
 st.divider()
 
@@ -92,41 +127,50 @@ numero_votanti = len(df_preferenze)
 
 st.subheader(f"📊 Voti segreti raccolti finora: {numero_votanti}")
 
-# Mostra il bottone solo se c'è almeno un voto
 if numero_votanti > 0:
     if st.button("🔮 Genera la Zingarata Definitiva", type="primary"):
-        if not api_key or api_key == "inserisci_qui_la_tua_api_key_reale":
+        if not api_key:
             st.error("⚠️ Manca la API Key di Groq nel file Secrets!")
         else:
-            with st.spinner("L'IA sta decifrando le vostre complesse esigenze..."):
+            with st.spinner("Mescolo i dati, assegno i nomi in codice e interrogo LLaMA..."):
                 
-                # Costruzione dinamica del prompt con i nuovi campi
+                # 1. SHUFFLE: Mescoliamo l'ordine delle righe a caso
+                df_mescolato = df_preferenze.sample(frac=1).reset_index(drop=True)
+                
+                # 2. GENERAZIONE NOMI IN CODICE
+                nomi_base = ["Falco", "Cobra", "Volpe", "Lupo", "Orso", "Tigre", "Vipera", "Corvo", "Squalo", "Pantera", "Grizzly", "Mamba"]
+                nomi_in_codice = random.sample(nomi_base, numero_votanti)
+                
+                # 3. COSTRUZIONE DEL PROMPT ANONIMO
                 prompt = (
-                    "Agisci come un tour operator esperto, spietato ma giusto. "
-                    "Devi organizzare una vacanza di gruppo ('Zingarata'). "
-                    "Ecco le richieste dettagliate dei partecipanti:\n\n"
+                    "Ecco le richieste dettagliate e ANONIME dei partecipanti. "
+                    "Usa ESCLUSIVAMENTE i loro Nomi in Codice per riferirti a loro.\n\n"
                 )
                 
-                for index, row in df_preferenze.iterrows():
-                    prompt += f"👤 PARTECIPANTE: {row.get('autore', f'Anonimo {index+1}')}\n"
+                for index, row in df_mescolato.iterrows():
+                    agente = f"Agente {nomi_in_codice[index]}"
+                    prompt += f"👤 {agente}:\n"
                     prompt += f"- Budget max: {row.get('budget', 'N/D')}€\n"
                     prompt += f"- Date Preferite: {row.get('date_preferite', 'N/D')}\n"
                     prompt += f"- Date da Evitare: {row.get('date_evitare', 'N/D')}\n"
                     prompt += f"- Date Impossibili: {row.get('date_impossibili', 'N/D')}\n"
                     prompt += f"- Amerebbe fare: {row.get('amerei_fare', 'N/D')}\n"
-                    prompt += f"- Preferisce fare: {row.get('preferisco_fare', 'N/D')}\n"
                     prompt += f"- Vuole evitare: {row.get('voglio_evitare', 'N/D')}\n"
-                    prompt += f"- Assolutamente NO: {row.get('assolutamente_no', 'N/D')}\n"
-                    prompt += f"- Proposta specifica: {row.get('proposta_testuale', 'Nessuna')}\n\n"
+                    prompt += f"- Assolutamente NO (Veto assoluto): {row.get('assolutamente_no', 'N/D')}\n"
+                    
+                    if row.get('proposta_testuale'):
+                        prompt += f"- Proposta specifica: {row.get('proposta_testuale')}\n\n"
+                    else:
+                        prompt += "\n"
                     
                 prompt += (
-                    "Il tuo compito:\n"
-                    "1. Analizza le date di tutti e trova il periodo migliore in cui NESSUNO ha 'Date Impossibili'.\n"
-                    "2. Trova una destinazione che rispetti rigorosamente i 'Assolutamente NO' di tutti.\n"
-                    "3. Cerca di soddisfare i 'Amerebbe fare' e non superare il budget più basso indicato dal gruppo.\n"
-                    "4. Valuta le 'Proposte specifiche' scritte dai partecipanti: se una è fattibile per tutti, promuovila.\n"
-                    "5. Proponi 2 o 3 opzioni di viaggio (Destinazione + Date stimate + Costo stimato + Motivazione).\n"
-                    "Usa un tono ironico, bacchetta chi ha fatto richieste assurde, ma fornisci informazioni utili e realistiche. Formatta la risposta in Markdown pulito."
+                    "IL TUO COMPITO (Valutazione Spietata):\n"
+                    "Per ogni proposta specifica emersa (o creane tu 2 se non ce ne sono di buone):\n"
+                    "1. Assegna uno 'Zinga-Score' (Voto di Compatibilità da 1 a 10).\n"
+                    "2. Elenca i MATCH 🟢 (Chi è felice e perché, es. rientra nel budget di tutti).\n"
+                    "3. Elenca i MISMATCH 🔴 (Quali 'Assolutamente NO' o date impossibili vengono violate e da chi).\n"
+                    "4. Sii ironico e bacchetta gli agenti che hanno fatto richieste assurde incompatibili con il gruppo.\n"
+                    "Formatta la risposta in Markdown in modo che sia facile e divertente da leggere."
                 )
 
                 try:
@@ -135,7 +179,7 @@ if numero_votanti > 0:
                         messages=[
                             {
                                 "role": "system",
-                                "content": "Sei un tour operator esperto e ironico. Organizzi viaggi per gruppi di amici molto complicati."
+                                "content": "Sei un tour operator esperto, spietato e ironico. Sei il giudice supremo delle vacanze di gruppo."
                             },
                             {
                                 "role": "user",
@@ -146,10 +190,10 @@ if numero_votanti > 0:
                         temperature=0.7,
                     )
                     
-                    st.subheader("🗺️ La Sentenza dell'IA (Powered by Groq)")
+                    st.subheader("🗺️ Il Verdetto (Classificato)")
                     st.markdown(chat_completion.choices[0].message.content)
                 except Exception as e:
-                    st.error(f"Si è verificato un errore con l'IA: {e}")
+                    st.error(f"Errore di comunicazione con i server segreti: {e}")
 
 st.divider()
 
