@@ -1,5 +1,5 @@
 import streamlit as st
-from mistralai import Mistral
+import requests
 import os
 import random
 from dotenv import load_dotenv
@@ -180,16 +180,18 @@ if numero_votanti > 0:
                 )
 
                 try:
-                    # Inizializziamo il client di Mistral
-                    client = Mistral(api_key=api_key)
-                    
-                    # Chiamata al modello (usiamo open-mistral-nemo, ottimo per il piano gratuito)
-                    chat_completion = client.chat.complete(
-                        model="open-mistral-nemo",
-                        messages=[
+                    # Chiamata DIRETTA e infallibile al server
+                    url = "https://api.mistral.ai/v1/chat/completions"
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {api_key}"
+                    }
+                    payload = {
+                        "model": "open-mistral-nemo",
+                        "temperature": 0.7,
+                        "messages": [
                             {
                                 "role": "system",
-                                # Ho ammorbidito "spietato" con "inflessibile" per evitare falsi positivi sui ban
                                 "content": "Sei un tour operator esperto, inflessibile e ironico. Sei il Direttore delle Operazioni per le vacanze di gruppo."
                             },
                             {
@@ -197,12 +199,19 @@ if numero_votanti > 0:
                                 "content": prompt
                             }
                         ]
-                    )
+                    }
                     
-                    st.subheader("🗺️ Il Dossier della Missione (Classificato)")
-                    st.markdown(chat_completion.choices[0].message.content)
+                    risposta = requests.post(url, headers=headers, json=payload)
+                    
+                    if risposta.status_code == 200:
+                        testo_ia = risposta.json()["choices"][0]["message"]["content"]
+                        st.subheader("🗺️ Il Dossier della Missione (Classificato)")
+                        st.markdown(testo_ia)
+                    else:
+                        st.error(f"Il server Mistral ha respinto la richiesta. Codice: {risposta.status_code} - Dettagli: {risposta.text}")
+                        
                 except Exception as e:
-                    st.error(f"Errore di comunicazione con i server segreti di Mistral: {e}")
+                    st.error(f"Errore di rete: {e}")
 
 st.divider()
 
