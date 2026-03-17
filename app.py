@@ -129,7 +129,11 @@ st.subheader(f"📊 Voti segreti raccolti finora: {numero_votanti}")
 if numero_votanti > 0:
     if st.button("🔮 Genera la Zingarata Definitiva", type="primary"):
         # Ora peschiamo la chiave di Mistral
-        api_key = os.getenv("MISTRAL_API_KEY") 
+        # Il sistema infallibile per pescare la chiave
+        if "MISTRAL_API_KEY" in st.secrets:
+            api_key = st.secrets["MISTRAL_API_KEY"] # Cerca su Streamlit Cloud
+        else:
+            api_key = os.getenv("MISTRAL_API_KEY")  # Cerca sul tuo PC locale (.env) 
         if not api_key:
             st.error("⚠️ Manca la API Key di Mistral nei Secrets!")
         else:
