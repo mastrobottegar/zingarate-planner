@@ -1,5 +1,5 @@
 import streamlit as st
-from groq import Groq
+from mistralai import Mistral
 import os
 import random
 from dotenv import load_dotenv
@@ -128,17 +128,18 @@ st.subheader(f"📊 Voti segreti raccolti finora: {numero_votanti}")
 
 if numero_votanti > 0:
     if st.button("🔮 Genera la Zingarata Definitiva", type="primary"):
+        # Ora peschiamo la chiave di Mistral
+        api_key = os.getenv("MISTRAL_API_KEY") 
         if not api_key:
-            st.error("⚠️ Manca la API Key di Groq nel file Secrets!")
+            st.error("⚠️ Manca la API Key di Mistral nei Secrets!")
         else:
-            with st.spinner("Mescolo i dati, assegno i nomi in codice e compilo il dossier operativo..."):
+            with st.spinner("Connessione ai server europei di Mistral in corso..."):
                 
                 # 1. SHUFFLE: Mescoliamo l'ordine delle righe a caso
                 df_mescolato = df_preferenze.sample(frac=1).reset_index(drop=True)
                 
                 # 2. GENERAZIONE NOMI IN CODICE
                 nomi_base = ["Falco", "Cobra", "Volpe", "Lupo", "Orso", "Tigre", "Vipera", "Corvo", "Squalo", "Pantera", "Grizzly", "Mamba"]
-                # Assicuriamoci di non chiedere più nomi di quanti ne abbiamo nella lista base
                 nomi_in_codice = random.sample(nomi_base, min(numero_votanti, len(nomi_base)))
                 
                 # 3. COSTRUZIONE DEL PROMPT ANONIMO
@@ -170,35 +171,38 @@ if numero_votanti > 0:
                     "- Assegna uno 'Zinga-Score' (da 1 a 10).\n"
                     "- Elenca i MATCH 🟢 (chi è felice e perché).\n"
                     "- Elenca i MISMATCH 🔴 (quali veti vengono violati e da chi).\n"
-                    "- Sii ironico e bacchetta gli agenti con richieste fuori dal mondo o con budget irrealistici.\n\n"
+                    "- Sii ironico e severo con chi ha fatto richieste fuori dal mondo o con budget irrealistici.\n\n"
                     "Fase 2: Il Dossier Operativo (La Meta Vincitrice)\n"
                     "- Decreta la meta VINCITRICE assoluta (quella che fa meno danni al gruppo e sopravvive ai veti).\n"
                     "- Stila un Programma Dettagliato Day-by-Day (Giorno 1, Giorno 2...) diviso in Mattina, Pomeriggio e Sera per la meta vincitrice.\n"
-                    "- Specifica nel programma COME le singole attività incastrano i paletti degli agenti (es. 'Sera: Birreria tranquilla per rispettare il divieto di discoteche dell'Agente Lupo').\n\n"
-                    "Formatta tutto in Markdown pulito, come un vero dossier top secret di spionaggio."
+                    "- Specifica nel programma COME le singole attività incastrano i paletti degli agenti.\n\n"
+                    "Formatta tutto in Markdown pulito."
                 )
 
                 try:
-                    client = Groq(api_key=api_key)
-                    chat_completion = client.chat.completions.create(
+                    # Inizializziamo il client di Mistral
+                    client = Mistral(api_key=api_key)
+                    
+                    # Chiamata al modello (usiamo open-mistral-nemo, ottimo per il piano gratuito)
+                    chat_completion = client.chat.complete(
+                        model="open-mistral-nemo",
                         messages=[
                             {
                                 "role": "system",
-                                "content": "Sei un tour operator esperto, spietato e ironico. Sei il Direttore delle Operazioni Segrete per le vacanze di gruppo."
+                                # Ho ammorbidito "spietato" con "inflessibile" per evitare falsi positivi sui ban
+                                "content": "Sei un tour operator esperto, inflessibile e ironico. Sei il Direttore delle Operazioni per le vacanze di gruppo."
                             },
                             {
                                 "role": "user",
                                 "content": prompt
                             }
-                        ],
-                        model="llama-3.3-70b-versatile",
-                        temperature=0.7,
+                        ]
                     )
                     
                     st.subheader("🗺️ Il Dossier della Missione (Classificato)")
                     st.markdown(chat_completion.choices[0].message.content)
                 except Exception as e:
-                    st.error(f"Errore di comunicazione con i server segreti: {e}")
+                    st.error(f"Errore di comunicazione con i server segreti di Mistral: {e}")
 
 st.divider()
 
